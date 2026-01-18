@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Image Duplicate Reviewer</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">Image Duplicate Reviewer</div>
+      <div class="meta">
+        <span id="statusMeta"></span>
+        <button id="loadMoreBtn" title="Load more pairs">Load more</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="done" class="done hidden">No more duplicate pairs found.</div>
+      <div id="pairsGrid" class="pairsGrid"></div>
+      <div id="sentinel" class="sentinel"></div>
+    </main>
+
+    <footer>
+      <div class="hint">Click an image to delete it (you will be asked to confirm). Scroll to load more. Resolution appears after image loads.</div>
+    </footer>
+    <script src="/app.js"></script>
+  </body>
+</html>
