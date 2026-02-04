@@ -10,12 +10,19 @@
     <header>
       <div class="title">Image Duplicate Reviewer</div>
       <div class="meta">
+        <div class="folderSelector">
+          <label for="subfolderSelect">Folder:</label>
+          <select id="subfolderSelect">
+            <option value="">All folders</option>
+          </select>
+        </div>
         <span id="statusMeta"></span>
         <button id="loadMoreBtn" title="Load more pairs">Load more</button>
       </div>
     </header>
 
     <main>
+      <div id="loading" class="loading hidden">Loading...</div>
       <div id="done" class="done hidden">No more duplicate pairs found.</div>
       <div id="pairsGrid" class="pairsGrid"></div>
       <div id="sentinel" class="sentinel"></div>

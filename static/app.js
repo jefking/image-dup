@@ -1,8 +1,10 @@
 const statusMeta = document.getElementById('statusMeta');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
 const doneEl = document.getElementById('done');
+const loadingEl = document.getElementById('loading');
 const pairsGrid = document.getElementById('pairsGrid');
 const sentinel = document.getElementById('sentinel');
+const subfolderSelect = document.getElementById('subfolderSelect');
 
 let cursor = 0;
 let done = false;
@@ -45,14 +47,68 @@ async function apiPairs(nextCursor, limit = 24) {
   return await r.json();
 }
 
+async function apiSubfolders() {
+  const r = await fetch('/api/subfolders');
+  return await r.json();
+}
+
+async function apiSetSubfolder(subfolder) {
+  const r = await fetch('/api/set-subfolder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subfolder: subfolder || null })
+  });
+  return await r.json();
+}
+
 function setDone(isDone) {
   doneEl.classList.toggle('hidden', !isDone);
+}
+
+function setLoading(isLoading) {
+  loadingEl.classList.toggle('hidden', !isLoading);
 }
 
 function updateStatus() {
   const total = totalCandidatePairs == null ? '?' : totalCandidatePairs;
   const tail = done ? ' — done' : (loading ? ' — loading…' : '');
   statusMeta.textContent = `Loaded ${loadedPairs} pairs (of ${total} candidates)` + tail;
+}
+
+async function loadSubfolders() {
+  const data = await apiSubfolders();
+  if (data.subfolders) {
+    data.subfolders.forEach(folder => {
+      const option = document.createElement('option');
+      option.value = folder;
+      option.textContent = folder;
+      if (folder === data.current) {
+        option.selected = true;
+      }
+      subfolderSelect.appendChild(option);
+    });
+  }
+}
+
+async function changeSubfolder(subfolder) {
+  setLoading(true);
+  setDone(false);
+  pairsGrid.innerHTML = '';
+  cursor = 0;
+  done = false;
+  loadedPairs = 0;
+  totalCandidatePairs = null;
+
+  const result = await apiSetSubfolder(subfolder);
+  if (result.error) {
+    alert(result.error);
+    setLoading(false);
+    return;
+  }
+
+  setLoading(false);
+  updateStatus();
+  loadMore();
 }
 
 async function deleteFile(info) {
@@ -143,6 +199,10 @@ async function loadMore() {
 
 loadMoreBtn.addEventListener('click', () => loadMore());
 
+subfolderSelect.addEventListener('change', (e) => {
+  changeSubfolder(e.target.value);
+});
+
 // Infinite scrolling: when the sentinel is near the viewport, fetch more.
 const io = new IntersectionObserver(
   (entries) => {
@@ -152,5 +212,9 @@ const io = new IntersectionObserver(
 );
 io.observe(sentinel);
 
-updateStatus();
-loadMore();
+// Initialize
+(async () => {
+  await loadSubfolders();
+  updateStatus();
+  loadMore();
+})();

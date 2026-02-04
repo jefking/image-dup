@@ -171,10 +171,11 @@ class FileInfo:
 
 
 class DuplicateState:
-    def __init__(self, root: Path, *, permanent_delete: bool):
+    def __init__(self, root: Path, *, permanent_delete: bool, subfolder: str | None = None):
         self.root = root
         self.permanent_delete = permanent_delete
         self.trash_dir = root / ".image-dup-trash"
+        self.subfolder = subfolder
 
         self._lock = threading.Lock()
         self._paths: dict[int, Path] = {}
@@ -188,10 +189,24 @@ class DuplicateState:
         self._groups: list[tuple[str, list[int]]] = []  # (group_key, ids)
         self._group_idx = 0
 
+    def list_subfolders(self) -> list[str]:
+        """List immediate subfolders under root (e.g., year folders)."""
+        subfolders = []
+        try:
+            for item in sorted(self.root.iterdir()):
+                if item.is_dir() and not item.name.startswith(".") and item.name != ".image-dup-trash":
+                    subfolders.append(item.name)
+        except Exception:
+            pass
+        return subfolders
+
     def build_index(self) -> None:
         # os.walk is significantly faster than Path.rglob for large trees.
+        # If subfolder is specified, only index that subfolder
+        scan_root = self.root / self.subfolder if self.subfolder else self.root
+
         paths: list[Path] = []
-        for dirpath, dirnames, filenames in os.walk(self.root):
+        for dirpath, dirnames, filenames in os.walk(scan_root):
             # Prune hidden dirs + our trash folder.
             dirnames[:] = [
                 d
@@ -427,6 +442,9 @@ class Handler(SimpleHTTPRequestHandler):
             limit = int((qs.get("limit") or ["24"])[0])
             return _send_json(self, self.state.pairs_page(cursor=cursor, limit=limit))
 
+        if parsed.path == "/api/subfolders":
+            return _send_json(self, {"subfolders": self.state.list_subfolders(), "current": self.state.subfolder})
+
         if parsed.path.startswith("/img/"):
             try:
                 fid = int(parsed.path.split("/", 2)[2])
@@ -457,6 +475,18 @@ class Handler(SimpleHTTPRequestHandler):
 
             if parsed.path == "/api/skip":
                 return _send_json(self, self.state.skip_group())
+
+            if parsed.path == "/api/set-subfolder":
+                body = _read_json_body(self)
+                subfolder = body.get("subfolder")
+                # Validate subfolder if provided
+                if subfolder:
+                    subfolder_path = self.state.root / subfolder
+                    if not subfolder_path.exists() or not subfolder_path.is_dir():
+                        return _send_json(self, {"error": "Invalid subfolder"}, status=400)
+                self.state.subfolder = subfolder
+                self.state.build_index()
+                return _send_json(self, {"ok": True, "subfolder": subfolder})
 
             return _send_json(self, {"error": "Unknown endpoint"}, status=404)
         except Exception as e:

@@ -1,7 +1,11 @@
 body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b0f14; color: #e6edf3; }
 header { padding: 12px 16px; border-bottom: 1px solid #243040; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .title { font-weight: 700; }
-.meta { display: flex; align-items: center; gap: 12px; }
+.meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.folderSelector { display: flex; align-items: center; gap: 6px; }
+.folderSelector label { font-size: 14px; color: #9aa6b2; }
+.folderSelector select { background: #0f1620; color: #e6edf3; border: 1px solid #243040; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.folderSelector select:hover { border-color: #1f6feb; }
 button { background: #1f6feb; color: white; border: 0; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 button:hover { filter: brightness(1.05); }
 main { padding: 16px; }
@@ -20,6 +24,7 @@ img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer; }
 .info .name { font-weight: 700; color: #e6edf3; word-break: break-all; }
 .info .path { opacity: 0.85; word-break: break-all; }
 .done { padding: 24px; font-size: 18px; background: #0f1620; border: 1px solid #243040; border-radius: 12px; }
+.loading { padding: 24px; font-size: 18px; background: #0f1620; border: 1px solid #243040; border-radius: 12px; text-align: center; }
 .hidden { display: none; }
 footer { padding: 10px 16px; border-top: 1px solid #243040; color: #9aa6b2; }
 .hint { font-size: 12px; }
