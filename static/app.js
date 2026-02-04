@@ -18,11 +18,13 @@ function humanBytes(bytes) {
   return `${b.toFixed(u === 0 ? 0 : 2)} ${units[u]}`;
 }
 
-function renderInfo(info, resSpanId) {
+function renderInfo(info, resSpanId, isLarger) {
+  const sizeText = `${humanBytes(info.size_bytes)} (${info.size_bytes} bytes)`;
+  const sizeDisplay = isLarger ? `<strong>${sizeText}</strong>` : sizeText;
   return `
     <div class="name">${info.name}</div>
     <div class="path">${info.relpath}</div>
-    <div>Size: ${humanBytes(info.size_bytes)} (${info.size_bytes} bytes)</div>
+    <div>Size: ${sizeDisplay}</div>
     <div>Modified: ${info.mtime_iso}</div>
     <div>Resolution: <span id="${resSpanId}">loading…</span></div>
     <div style="margin-top:6px; opacity:0.9;">Click image to delete</div>
@@ -79,6 +81,10 @@ function appendPair(pair) {
   const leftResId = `res-${pairId}-l-${pair.left.id}`;
   const rightResId = `res-${pairId}-r-${pair.right.id}`;
 
+  // Determine which file is larger
+  const leftIsLarger = pair.left.size_bytes > pair.right.size_bytes;
+  const rightIsLarger = pair.right.size_bytes > pair.left.size_bytes;
+
   card.innerHTML = `
     <div class="pairHeader">
       <div>key: ${pair.group_key}</div>
@@ -89,8 +95,8 @@ function appendPair(pair) {
       <div class="imgWrap"><img loading="lazy" decoding="async" data-file-id="${pair.right.id}" /></div>
     </div>
     <div class="pairInfo">
-      <div class="info">${renderInfo(pair.left, leftResId)}</div>
-      <div class="info">${renderInfo(pair.right, rightResId)}</div>
+      <div class="info">${renderInfo(pair.left, leftResId, leftIsLarger)}</div>
+      <div class="info">${renderInfo(pair.right, rightResId, rightIsLarger)}</div>
     </div>
   `;
 

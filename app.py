@@ -246,9 +246,29 @@ class DuplicateState:
                 if stem.lower() == name_key and _DUP_SUFFIX_RE.match(stem) is None:
                     base = fid
                     break
+
+            # Get base aspect ratio for filtering
+            base_info = info_by_id[base]
+            base_aspect = None
+            if base_info.width and base_info.height and base_info.height > 0:
+                base_aspect = base_info.width / base_info.height
+
             for other in ids:
                 if other == base:
                     continue
+
+                # Only pair if aspect ratios match (within small tolerance for rounding)
+                if base_aspect is not None:
+                    other_info = info_by_id[other]
+                    if other_info.width and other_info.height and other_info.height > 0:
+                        other_aspect = other_info.width / other_info.height
+                        # Allow 0.1% tolerance for rounding errors
+                        if abs(base_aspect - other_aspect) / base_aspect > 0.001:
+                            continue
+                    else:
+                        # Skip if we can't determine aspect ratio
+                        continue
+
                 pairs.append((base, other, group_key))
 
         grouped.sort(key=lambda kv: kv[0])
@@ -448,11 +468,6 @@ def main() -> int:
     ap.add_argument("--root", default="/home/jef/Pictures/photos", help="Root folder containing year subfolders")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument(
-        "--permanent-delete",
-        action="store_true",
-        help="Delete files permanently (default is to move to --root/.image-dup-trash)",
-    )
     args = ap.parse_args()
 
     root = Path(args.root).expanduser().resolve()

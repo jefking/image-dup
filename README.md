@@ -20,12 +20,6 @@ python3 app.py --root /home/jef/Pictures/photos --port 8000
 
 Then open: http://127.0.0.1:8000/
 
-Permanent delete mode:
-
-```bash
-python3 app.py --root /home/jef/Pictures/photos --permanent-delete
-```
-
 ### Controls
 
 * Click left/right image to delete it (browser will ask you to confirm).
