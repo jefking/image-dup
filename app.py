@@ -16,6 +16,7 @@ import mimetypes
 import os
 import re
 import shutil
+import struct
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,6 +28,108 @@ from urllib.parse import parse_qs, urlparse
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 _DUP_SUFFIX_RE = re.compile(r"^(.*?)( \([0-9]+\))$", re.IGNORECASE)
+
+
+def get_image_dimensions(path: Path) -> tuple[int, int] | None:
+    """Extract image dimensions without external dependencies.
+
+    Returns (width, height) or None if unable to determine.
+    """
+    try:
+        with path.open("rb") as f:
+            head = f.read(24)
+            if len(head) < 24:
+                return None
+
+            # PNG
+            if head[:8] == b'\x89PNG\r\n\x1a\n':
+                f.seek(16)
+                w, h = struct.unpack('>II', f.read(8))
+                return (w, h)
+
+            # JPEG
+            if head[:2] == b'\xff\xd8':
+                f.seek(0)
+                size = 2
+                ftype = 0
+                while not 0xc0 <= ftype <= 0xcf or ftype in (0xc4, 0xc8, 0xcc):
+                    f.seek(size, 1)
+                    byte = f.read(1)
+                    while byte and byte != b'\xff':
+                        byte = f.read(1)
+                    if not byte:
+                        return None
+                    byte = f.read(1)
+                    while byte == b'\xff':
+                        byte = f.read(1)
+                    if not byte:
+                        return None
+                    ftype = ord(byte)
+                    size_bytes = f.read(2)
+                    if len(size_bytes) < 2:
+                        return None
+                    size = struct.unpack('>H', size_bytes)[0] - 2
+                if size < 5:
+                    return None
+                f.read(1)  # precision
+                h, w = struct.unpack('>HH', f.read(4))
+                return (w, h)
+
+            # GIF
+            if head[:6] in (b'GIF87a', b'GIF89a'):
+                w, h = struct.unpack('<HH', head[6:10])
+                return (w, h)
+
+            # BMP
+            if head[:2] == b'BM':
+                w, h = struct.unpack('<ii', head[18:26])
+                return (abs(w), abs(h))
+
+            # WEBP
+            if head[:4] == b'RIFF' and head[8:12] == b'WEBP':
+                if head[12:16] == b'VP8 ':
+                    f.seek(26)
+                    data = f.read(4)
+                    w = struct.unpack('<H', data[0:2])[0] & 0x3fff
+                    h = struct.unpack('<H', data[2:4])[0] & 0x3fff
+                    return (w, h)
+                elif head[12:16] == b'VP8L':
+                    f.seek(21)
+                    data = f.read(4)
+                    bits = struct.unpack('<I', data)[0]
+                    w = (bits & 0x3fff) + 1
+                    h = ((bits >> 14) & 0x3fff) + 1
+                    return (w, h)
+                elif head[12:16] == b'VP8X':
+                    f.seek(24)
+                    data = f.read(6)
+                    w = struct.unpack('<I', data[0:3] + b'\x00')[0] + 1
+                    h = struct.unpack('<I', data[3:6] + b'\x00')[0] + 1
+                    return (w, h)
+
+            # TIFF
+            if head[:2] in (b'II', b'MM'):
+                endian = '<' if head[:2] == b'II' else '>'
+                f.seek(4)
+                offset = struct.unpack(endian + 'I', f.read(4))[0]
+                f.seek(offset)
+                num_tags = struct.unpack(endian + 'H', f.read(2))[0]
+                w = h = None
+                for _ in range(num_tags):
+                    tag_data = f.read(12)
+                    if len(tag_data) < 12:
+                        break
+                    tag = struct.unpack(endian + 'H', tag_data[:2])[0]
+                    value = struct.unpack(endian + 'I', tag_data[8:12])[0]
+                    if tag == 256:  # ImageWidth
+                        w = value
+                    elif tag == 257:  # ImageLength
+                        h = value
+                    if w and h:
+                        return (w, h)
+    except Exception:
+        pass
+    return None
 
 
 def normalize_key(p: Path) -> str:
@@ -63,6 +166,8 @@ class FileInfo:
     name: str
     size_bytes: int
     mtime_iso: str
+    width: int | None = None
+    height: int | None = None
 
 
 class DuplicateState:
@@ -106,12 +211,16 @@ class DuplicateState:
         info_by_id: dict[int, FileInfo] = {}
         for i, p in paths_by_id.items():
             st = p.stat()
+            dims = get_image_dimensions(p)
+            width, height = dims if dims else (None, None)
             info_by_id[i] = FileInfo(
                 id=i,
                 relpath=str(p.relative_to(self.root)),
                 name=p.name,
                 size_bytes=st.st_size,
                 mtime_iso=iso_mtime(st.st_mtime),
+                width=width,
+                height=height,
             )
 
         # IMPORTANT: only compare duplicates within the same directory.
