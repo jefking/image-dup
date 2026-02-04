@@ -498,6 +498,11 @@ def main() -> int:
     ap.add_argument("--root", default="/home/jef/Pictures/photos", help="Root folder containing year subfolders")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument(
+        "--permanent-delete",
+        action="store_true",
+        help="Delete files permanently (default is to move to --root/.image-dup-trash)",
+    )
     args = ap.parse_args()
 
     root = Path(args.root).expanduser().resolve()
